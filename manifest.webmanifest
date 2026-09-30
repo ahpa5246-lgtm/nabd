@@ -1,0 +1,9 @@
+{
+  "name":"نَبض | NABD",
+  "short_name":"نَبض",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#050b09",
+  "theme_color":"#07130f",
+  "description":"مساعد قرار مالي محلي للتجار والمشاريع الصغيرة."
+}
