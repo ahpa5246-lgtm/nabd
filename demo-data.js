@@ -17,7 +17,7 @@ export function createDemoTransactions() {
     ['d11',2,520000,'income','تحصيل','مبلغ مستحق من زبون','zaincash','scheduled'],
     ['d12',4,2300000,'expense','موردون','دفعة المورد الرئيسية','bank','scheduled'],
     ['d13',6,780000,'income','مبيعات','مبيعات متوقعة','cash','scheduled'],
-    ['d14',8,1450000,'expense','موردون','طلبية الموسم','bank','scheduled'],
+    ['d14',8,2650000,'expense','موردون','طلبية الموسم','bank','scheduled'],
     ['d15',10,930000,'income','تحصيل','مستحقات عملاء','zaincash','scheduled'],
     ['d16',13,650000,'income','مبيعات','مبيعات متوقعة','cash','scheduled'],
   ].map(([id,off,amount,type,category,description,channel,status]) => ({id,date:iso(off),amount,type,category,description,channel,status}))
