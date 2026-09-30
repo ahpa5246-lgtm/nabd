@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: nabd
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
