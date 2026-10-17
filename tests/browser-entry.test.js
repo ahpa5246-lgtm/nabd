@@ -53,6 +53,8 @@ test('demo stays distinct from real imports, malformed CSV is atomic, and user t
   assert.ok(!markup.includes('<img src=x onerror=alert(1)>'));
 
   const restore=node('#restore');
-  await restore.onchange({target:{files:[{size:2,text:async()=>JSON.stringify([rows[0]])]}],value:'backup.json'}});
+  const restored=JSON.stringify([rows[0]]);
+  const restoreEvent={target:{files:[{size:restored.length,text:async()=>restored}],value:'backup.json'}};
+  await restore.onchange(restoreEvent);
   assert.equal(JSON.parse(state.get('nabd.transactions.v1')).length,1,'restore replaces saved state');
 });
