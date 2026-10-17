@@ -29,8 +29,10 @@ export class CloudClient {
     this.session=null;
   }
   _headers(accessToken,extra={}){
-    return {'apikey':this.key,'Authorization':'Bearer '+(accessToken||this.key),
-      'Accept':'application/json',...extra};
+    const headers={'apikey':this.key,'Accept':'application/json',...extra};
+    if(accessToken)headers.Authorization='Bearer '+accessToken;
+    else if(this.key.startsWith('eyJ'))headers.Authorization='Bearer '+this.key;
+    return headers;
   }
   async _request(path,{method='GET',body,auth=true,headers={}}={}){
     if(auth)await this._ensureSession();
