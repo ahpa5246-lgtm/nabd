@@ -300,3 +300,9 @@ h3{font-size:15px}small{font-size:12px}
  .topbar .round-btn{flex:none}
  .topbar .data-pill{white-space:normal;max-width:125px;text-align:center}
 }
+
+
+.metric-value,.spotlight-side strong,.scenario-compare strong,.transaction-amount{
+ white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere
+}
+.metric-value{font-variant-numeric:tabular-nums;line-height:1.4}
