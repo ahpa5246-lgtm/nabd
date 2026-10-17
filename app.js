@@ -1,7 +1,36 @@
-import{createDemoTransactions as demo}from'./demo-data.js';import{runAgents,runScenario,answerQuestion,compactMoney,fullDate}from'./agents.js';
-const A=document.querySelector('#app'),T=document.querySelector('#toast'),K='nabd.transactions.v1';let tx=JSON.parse(localStorage.getItem(K)||'null')||demo(),view='overview',sc={extraCollection:0,reduceExpensesPct:0,delayLargeExpenseDays:0},msgs=[{r:'n',t:'اسألني عن الرصيد، العجز، المصروفات أو أول خطوة لازم تسويها.'}];
+import {createDemoTransactions as demo} from './demo-data.js';
+import {runAgents, runScenario, answerQuestion, compactMoney, fullDate} from './agents.js';
+import {parseCsvTransactions, validateStoredTransactions, combineWithoutDuplicates, MAX_CSV_CHARS} from './transaction-utils.js';
+
+const A=document.querySelector('#app'),T=document.querySelector('#toast'),K='nabd.transactions.v1';
+let tx=[],startupFault=null,isDemo=false,view='overview';
+let sc={extraCollection:0,reduceExpensesPct:0,delayLargeExpenseDays:0};
+let msgs=[{r:'n',t:'اسألني عن الرصيد، العجز، المصروفات أو أول خطوة لازم تسويها.'}];
+try{
+  const stored=localStorage.getItem(K);
+  if(stored===null){tx=demo();isDemo=true;}
+  else {
+    tx=validateStoredTransactions(JSON.parse(stored));
+    isDemo=tx.length===16&&tx.every(t=>/^d(?:[1-9]|1[0-6])$/.test(t.id));
+  }
+}catch(error){
+  // Do not silently overwrite corrupted financial data.
+  startupFault={raw:null};
+  try{startupFault.raw=localStorage.getItem(K);}catch{}
+}
 const nav=[['overview','نظرة عامة'],['transactions','الحركات'],['agents','الوكلاء'],['scenarios','السيناريوهات'],['assistant','اسأل نبض'],['settings','الإعدادات']];
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])),save=()=>localStorage.setItem(K,JSON.stringify(tx)),toast=s=>{T.textContent=s;T.hidden=false;setTimeout(()=>T.hidden=true,2200)},dl=(n,s,y='text/plain')=>{let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:y}));a.download=n;a.click()};
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const toast=s=>{T.textContent=s;T.hidden=false;setTimeout(()=>T.hidden=true,4000)};
+const persist=(rows,demoMode=false)=>{
+  try{localStorage.setItem(K,JSON.stringify(rows));tx=rows;isDemo=demoMode;return true;}
+  catch{toast('فشل حفظ البيانات على هذا الجهاز. لم نطبّق التغيير. صدّر نسخة احتياطية وتحقق من مساحة المتصفح.');return false;}
+};
+const dl=(name,contents,type='text/plain')=>{
+  const link=document.createElement('a'),url=URL.createObjectURL(new Blob([contents],{type}));
+  link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+};
+const confirmReplace=message=>window.confirm(message);
+
 function shell(x){return`<div class="shell"><aside><h2>⌁ نَبض <small>NABD</small></h2><div class="local">● يعمل محليًا — بياناتك لا تغادر الجهاز</div><nav>${nav.map(n=>`<button data-v="${n[0]}" class="${view==n[0]?'on':''}">${n[1]}</button>`).join('')}</nav><footer>Multi-Agent Cashflow Engine v1.0</footer></aside><main><header><div><small>مركز القرار المالي</small><h1>${nav.find(n=>n[0]==view)[1]}</h1></div><button id="run">تشغيل التحليل</button></header><div class="content">${x}</div></main></div>`}
 function cashChart(r){let min=Math.min(...r.forecast.map(x=>x.balance)),max=Math.max(...r.forecast.map(x=>x.balance)),span=max-min||1;return`<div class="bars">${r.forecast.map((p,i)=>`<div title="${fullDate(p.date)} — ${compactMoney(p.balance)}"><i class="${p.balance<0?'bad':''}" style="height:${20+Math.max(0,(p.balance-min)/span*80)}%"></i>${i%3==0?`<small>${p.date.slice(5)}</small>`:''}</div>`).join('')}</div>`}
 function overview(r){let neg=r.forecast.find(x=>x.balance<0);return`<section class="hero"><div><b>✦ خلاصة نبض</b><h2>${neg?'ضغط سيولة قادم قبل أن يتحول إلى مشكلة.':'السيولة مستقرة ضمن فترة التوقع.'}</h2><p>${r.explanation}</p><button data-v="scenarios">جرّب سيناريو حل</button></div><div class="orb ${neg?'red':''}"><small>${neg?'العجز المتوقع':'الفترة'}</small><strong>${neg?compactMoney(Math.abs(neg.balance)):'14 يوم'}</strong></div></section><section class="stats"><article><small>الرصيد الحالي</small><b>${compactMoney(r.currentBalance)}</b></article><article><small>الوارد / 30 يوم</small><b class="ok">${compactMoney(r.inflow30d)}</b></article><article><small>الصادر / 30 يوم</small><b>${compactMoney(r.outflow30d)}</b></article><article><small>هامش التشغيل</small><b>${r.runwayDays??'—'} يوم</b></article></section><div class="cols"><section class="card"><h3>توقع السيولة — 14 يومًا</h3>${cashChart(r)}</section><section class="card"><h3>المخاطر</h3>${r.risks.length?r.risks.map(x=>`<div class="risk ${x.severity}"><b>${esc(x.title)}</b><p>${esc(x.detail)}</p></div>`).join(''):'<p class="muted">لا توجد مخاطر بارزة.</p>'}</section></div><section class="card"><h3>خطة العمل</h3><div class="actions">${r.actions.map((x,i)=>`<article><em>${i+1}</em><b>${esc(x.title)}</b><p>${esc(x.detail)}</p><small>أثر محتمل: ${compactMoney(x.impact)}</small></article>`).join('')}</div></section>`}
