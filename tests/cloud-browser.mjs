@@ -96,7 +96,7 @@ try{
  await page.locator('#new-transaction').click();
  await page.locator('[name=amount]').fill('123450');
  await page.locator('[name=date]').fill('2026-10-16');
- await page.locator('[name=description]').fill('بيع حقيقي سحابي');
+ await page.locator('#transaction-form [name=description]').fill('بيع حقيقي سحابي');
  await page.locator('#transaction-form button[type=submit]').click();
  await page.waitForFunction(()=>document.querySelector('#new-transaction')!==null);
  assert.equal(transactions.size,1);
@@ -111,7 +111,7 @@ try{
  await page.locator('#new-transaction').click();
  await page.locator('[name=amount]').fill('9999');
  await page.locator('[name=date]').fill('2026-10-17');
- await page.locator('[name=description]').fill('should fail');
+ await page.locator('#transaction-form [name=description]').fill('should fail');
  await page.locator('#transaction-form button[type=submit]').click();
  await page.waitForTimeout(500);
  assert.equal(transactions.size,1);
