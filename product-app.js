@@ -1,11 +1,80 @@
 import {createDemoTransactions} from './demo-data.js';
 import {runAgents,runScenario,answerQuestion,compactMoney,todayIso,addDays,fullDate} from './agents.js';
 import {parseCsvTransactions,combineWithoutDuplicates,validateStoredTransactions,validateTransaction} from './transaction-utils.js';
+import {CLOUD_ENABLED,CloudClient} from './cloud-service.js';
 
 const ROOT=document.querySelector('#app');
 const TOAST=document.querySelector('#toast');
 const TX_KEY='nabd.transactions.v1';
 const BAL_KEY='nabd.opening-balance.v1';
+const cloud=CLOUD_ENABLED?new CloudClient():null;
+const C={loading:CLOUD_ENABLED,register:false,busy:false,spaces:[],selected:null,error:null,emailNotice:''};
+const cloudBusy=fn=>async event=>{
+  if(C.busy)return;
+  C.busy=true;
+  try{await fn(event);}
+  catch(err){notify(err?.message||'فشلت العملية دون حفظ البيانات.');}
+  finally{C.busy=false;}
+};
+async function syncCloud(preferredId=C.selected?.id){
+  const workspaces=await cloud.listWorkspaces();
+  C.spaces=workspaces;
+  C.selected=workspaces.find(x=>x.id===preferredId)||workspaces[0]||null;
+  if(C.selected){
+    const rows=await cloud.listTransactions(C.selected.id);
+    state.transactions=rows;state.openingBalance=Number(C.selected.opening_balance_iqd);
+  }else{state.transactions=[];state.openingBalance=0;}
+  state.demo=false;
+}
+async function bootCloud(){
+  try{
+    const signedIn=await cloud.restoreSession();
+    if(signedIn)await syncCloud();
+  }catch(err){C.error=err.message;}
+  finally{C.loading=false;render();}
+}
+async function persistCloud(next){
+  if(!C.selected)throw Error('اختر مساحة عمل أولًا.');
+  await cloud.saveDifference(C.selected.id,state.transactions,next);
+  state.transactions=await cloud.listTransactions(C.selected.id);
+  state.demo=false;
+  C.error=null;
+}
+function cloudGate(){
+ const missing=!cloud.session;
+ ROOT.innerHTML='<main class="cloud-gate"><div class="cloud-card"><div class="cloud-emblem">'+ic('shield',26)+'</div><div class="eyebrow">NABD / SECURE WORKSPACE</div>'+
+ '<h1>'+(C.loading?'الاتصال الآمن قيد التحقق':missing?(C.register?'حساب تاجر جديد':'الدخول إلى مساحة نبض'):'إنشاء مساحة عمل')+'</h1>'+
+ '<p>'+(C.loading?'نُراجع الجلسة قبل إظهار أي بيانات مالية.':missing?'بيانات المتاجر منفصلة على الخادم. لا يُسمح بالقراءة قبل تسجيل الدخول.':'سمّ متجرك؛ سيتم إنشاء مساحة مستقلة بصلاحيات قاعدة البيانات.')+'</p>'+
+ (C.error?'<p class="gate-error" role="alert">'+escapeHTML(C.error)+'</p>':'')+
+ (C.emailNotice?'<p class="gate-note" role="status">'+escapeHTML(C.emailNotice)+'</p>':'')+
+ (C.loading?'':missing?'<form id="account-form"><label>البريد الإلكتروني<input name="email" type="email" autocomplete="email" required maxlength="254"></label>'+
+ '<label>كلمة المرور<input name="password" type="password" autocomplete="'+(C.register?'new-password':'current-password')+'" required minlength="8" maxlength="128"></label>'+
+ '<button class="btn btn-primary" type="submit">'+(C.register?'إنشاء الحساب':'تسجيل الدخول')+'</button></form>'+
+ '<button id="switch-auth" class="gate-switch">'+(C.register?'لديك حساب؟ سجّل الدخول':'ليس لديك حساب؟ أنشئ حسابًا')+'</button>':
+ '<form id="create-workspace"><label>اسم المتجر<input name="name" minlength="2" maxlength="100" required placeholder="مثلاً: متجر بغداد"></label>'+
+ '<button class="btn btn-primary" type="submit">إنشاء مساحة المتجر</button></form>'+
+ '<button id="logout-cloud" class="gate-switch">تسجيل الخروج</button>')+
+ '<small>إصدار سحابي تجريبي. يتطلب مراجعة مستقلة قبل إدخال بيانات مالية حساسة حقيقية.</small></div></main>';
+ document.querySelector('#switch-auth')?.addEventListener('click',()=>{C.register=!C.register;C.error=null;C.emailNotice='';render();});
+ document.querySelector('#account-form')?.addEventListener('submit',cloudBusy(async e=>{
+  e.preventDefault();const values=new FormData(e.currentTarget);
+  const email=String(values.get('email')||'').trim(),password=String(values.get('password')||'');
+  if(C.register){
+    await cloud.signUp(email,password);
+    C.register=false;C.emailNotice='وصل طلب التسجيل. افتح رسالة تأكيد البريد إذا كان التحقق مفعّلًا، ثم سجّل الدخول.';
+  }else{await cloud.signIn(email,password);C.emailNotice='';await syncCloud();}
+  C.error=null;render();
+ }));
+ document.querySelector('#create-workspace')?.addEventListener('submit',cloudBusy(async e=>{
+  e.preventDefault();
+  const created=await cloud.createWorkspace(String(new FormData(e.currentTarget).get('name')||''));
+  await syncCloud(created.id);render();notify('أُنشئت مساحة المتجر بنجاح.');
+ }));
+ document.querySelector('#logout-cloud')?.addEventListener('click',cloudBusy(async()=>{
+  await cloud.signOut();C.selected=null;C.spaces=[];state.transactions=[];render();
+ }));
+}
+
 const VIEWS=[['overview','لوحة التحكم','layout-dashboard'],['transactions','الحركات المالية','arrow-left-right'],
  ['analytics','التحليلات','chart'],['scenarios','ماذا لو؟','sliders'],['agents','قرارات نبض','sparkles'],['assistant','اسأل نبض','message'],['settings','الإعدادات','settings']];
 const ICONS={
@@ -46,8 +115,15 @@ const load=()=>{
     state.openingBalance=n??0;
   }catch{}
 };
-load();
-function save(rows, demoFlag=false){
+if(!CLOUD_ENABLED)load();
+async function save(rows, demoFlag=false){
+  if(CLOUD_ENABLED){
+    if(C.busy){notify('هناك عملية حفظ قيد التنفيذ.');return false;}
+    C.busy=true;
+    try{await persistCloud(rows);return true;}
+    catch(err){notify(err.message||'تعذّر حفظ التعديل على الخادم.');return false;}
+    finally{C.busy=false;}
+  }
   try{localStorage.setItem(TX_KEY,JSON.stringify(validateStoredTransactions(rows)));}
   catch(err){notify('تعذّر الحفظ. بقيت بياناتك السابقة كما هي.');return false;}
   state.transactions=rows;state.demo=demoFlag;return true;
@@ -93,7 +169,8 @@ function categoryExpenses(){
 function baseLayout(content,r){
  const nav=VIEWS.map(v=>'<button class="nav-item '+(state.view===v[0]?'active':'')+'" data-v="'+v[0]+'" '+(state.view===v[0]?'aria-current="page"':'')+'>'+ic(v[2],20)+'<span>'+v[1]+'</span></button>').join('');
  const current=VIEWS.find(v=>v[0]===state.view)?.[1]||'لوحة التحكم';
- const source=state.demo?'<span class="data-pill sample">بيانات تجريبية</span>':'<span class="data-pill private">محفوظة على هذا الجهاز</span>';
+ const source=CLOUD_ENABLED?'<span class="data-pill private">'+ic('shield',13)+' '+escapeHTML(C.selected?.name||'سحابي')+'</span>':
+ (state.demo?'<span class="data-pill sample">بيانات تجريبية</span>':'<span class="data-pill private">محفوظة على هذا الجهاز</span>');
  return '<a class="skip-link" href="#workspace">انتقل إلى المحتوى</a>'+
  '<div class="workspace"><aside class="sidebar '+(state.mobileMenu?'open':'')+'" aria-label="قائمة التنقل">'+
  '<div class="brand"><span class="brand-icon">'+ic('sparkles',25)+'</span><div><strong>نَبض</strong><small>NABD / FINANCE</small></div></div>'+
@@ -104,7 +181,9 @@ function baseLayout(content,r){
  '<button class="mobile-toggle" id="toggle-menu" aria-label="فتح القائمة">'+ic('menu')+'</button>'+
  '<span class="crumb-dot"></span><span>مساحة العمل</span>'+ic('chevron',15)+'<strong>'+current+'</strong></div>'+
  '<div class="top-actions"><label class="range-pick" for="range-control">الفترة <select id="range-control"><option value="30" '+(state.range==='30'?'selected':'')+'>آخر 30 يومًا</option><option value="90" '+(state.range==='90'?'selected':'')+'>آخر 90 يومًا</option><option value="month" '+(state.range==='month'?'selected':'')+'>الشهر الحالي</option><option value="all" '+(state.range==='all'?'selected':'')+'>الكل</option></select></label>'+source+'<span class="today-badge">'+ic('calendar',16)+' '+escapeHTML(fullDate(todayIso()))+'</span>'+
- '<button class="round-btn" id="export-report" title="تصدير ملخص مالي" aria-label="تصدير ملخص مالي">'+ic('download',18)+'</button></div></header>'+
+ '<button class="round-btn" id="export-report" title="تصدير ملخص مالي" aria-label="تصدير ملخص مالي">'+ic('download',18)+'</button>'+
+ (CLOUD_ENABLED?'<button class="round-btn" id="refresh-cloud" title="مزامنة بيانات المتجر" aria-label="تحديث البيانات">'+ic('trend',18)+'</button><button class="cloud-logout" id="cloud-logout">خروج</button>':'')+
+ '</div></header>'+
  '<main id="workspace" class="page-body">'+
  (state.demo?'<div class="demo-banner" role="status">'+ic('info',19)+' <div><b>هذه بيانات للعرض فقط</b><span>كل الأرقام افتراضية. عند إضافة أول حركة حقيقية نبدأ سجلًا نظيفًا.</span></div><button id="start-fresh">بدء سجل حقيقي</button></div>':'')+
  content+'</main></div></div>'+
@@ -262,6 +341,8 @@ function assistantView(r){
 }
 function settingsView(){
  return header('الإعدادات والخصوصية','إدارة بياناتك والافتراضات التي تعتمد عليها الحسابات')+
+ (CLOUD_ENABLED?'<section class="panel cloud-settings"><h2>مساحات متاجرك</h2><p>كل متجر له بياناته وصلاحياته المستقلة، ولا يمكن الوصول إلى سجلاته من حساب آخر.</p><div class="cloud-space-controls"><select id="switch-workspace" aria-label="اختيار المتجر">'+C.spaces.map(w=>'<option value="'+escapeHTML(w.id)+'" '+(w.id===C.selected?.id?'selected':'')+'>'+escapeHTML(w.name)+'</option>').join('')+'</select><button id="new-workspace" class="btn btn-secondary">إضافة متجر</button></div>'+
+ '<p class="cloud-migrate-note">يمكن نقل سجل قديم من هذا الجهاز بعد التأكد أنه حقيقي وأن المتجر الجديد فارغ.</p><button id="import-legacy" class="btn btn-secondary">مراجعة نقل السجل القديم</button></section>':'')+
  '<div class="settings-grid"><section class="panel"><div class="panel-head"><div><h2>أساس الحساب</h2><p>حتى لا نخلط صافي الحركات بالرصيد الحقيقي</p></div></div>'+
  '<form id="balance-form"><label class="form-field"><span>الرصيد الافتتاحي بالدينار العراقي</span><input id="opening-balance" type="number" min="-1000000000000" max="1000000000000" step="1" required value="'+state.openingBalance+'"></label>'+
  '<p class="field-hint">ضع الرصيد الموجود قبل أول حركة في السجل. لا نعتبر الصافي رصيدًا بنكيًا مؤكدًا إلا بعد المصالحة.</p><button class="btn btn-primary" type="submit">'+ic('check',18)+' حفظ الرصيد</button></form></section>'+
@@ -270,9 +351,10 @@ function settingsView(){
  '<label class="setting-button file-label">'+ic('file',21)+'<span><b>استعادة نسخة</b><small>استبدال السجل بعد التأكيد</small></span><input id="restore" type="file" accept=".json,application/json" aria-label="اختيار النسخة الاحتياطية"></label>'+
  '<button class="setting-button" id="export-csv">'+ic('download',21)+'<span><b>تصدير الحركات CSV</b><small>بياناتك بصيغة جدول</small></span></button></div></section>'+
  '<section class="panel"><div class="panel-head"><div><h2>البيانات المحلية</h2><p>إجراءات تستوجب التأكيد</p></div></div>'+
- '<div class="setting-actions"><button class="setting-button" id="demo-reset">'+ic('layers',20)+'<span><b>العودة إلى بيانات العرض</b><small>استبدال السجل ببيانات افتراضية</small></span></button>'+
+ '<div class="setting-actions">'+(CLOUD_ENABLED?'':'<button class="setting-button" id="demo-reset">'+ic('layers',20)+'<span><b>العودة إلى بيانات العرض</b><small>استبدال السجل ببيانات افتراضية</small></span></button>')+
  '<button class="setting-button danger" id="clear-ledger">'+ic('trash',20)+'<span><b>مسح جميع الحركات</b><small>لا يمكن التراجع دون نسخة احتياطية</small></span></button></div></section>'+
- '<section class="panel privacy-card">'+ic('shield',29)+'<h2>البيانات على جهازك</h2><p>النسخة الحالية لا تحتوي حسابات حقيقية أو مزامنة أو تشفير سجلات المستخدمين. لا تستخدم جهازًا مشتركًا لحفظ بيانات تجارية حساسة، واحتفظ بالنسخة الاحتياطية في مكان آمن.</p>'+
+ '<section class="panel privacy-card">'+ic('shield',29)+'<h2>'+(CLOUD_ENABLED?'البيانات على خادم محمي بصلاحيات':'البيانات على جهازك')+'</h2><p>'+
+ (CLOUD_ENABLED?'السجلات تُحفظ في حسابك وتخضع لصلاحيات RLS داخل قاعدة البيانات. هذه نسخة تجريبية؛ لا تُدخل أسرارًا مالية حقيقية قبل تدقيق الخدمة والنسخ الاحتياطية.':'النسخة المحلية لا تحتوي حسابات أو مزامنة أو تشفير. لا تستخدم جهازًا مشتركًا لحفظ بيانات تجارية حساسة.')+'</p>'+
  '<a href="./privacy.html">سياسة الخصوصية</a> · <a href="./terms.html">شروط الاستخدام</a></section></div>';
 }
 function formFields(edit){
@@ -307,6 +389,7 @@ function exportCsv(rows){
  download('nabd-transactions.csv',csv,'text/csv;charset=utf-8');
 }
 function render(){
+ if(CLOUD_ENABLED&&(C.loading||!cloud.session||!C.selected)){cloudGate();return;}
  if(state.error){
   ROOT.innerHTML='<main class="recovery"><div class="panel"><h1>توقفنا لحماية سجلّك</h1><p>'+escapeHTML(state.error)+'</p><button id="raw-save" class="btn btn-secondary">تنزيل السجل الخام</button><button id="reset-storage" class="btn btn-danger">بدء سجل جديد بعد التأكيد</button></div></main>';
   bindRecovery();return;
@@ -329,6 +412,37 @@ function openModal(mode,id=null){state.modal=mode;state.editId=id;render();setTi
 function bind(){
  document.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{state.view=b.dataset.v;state.mobileMenu=false;state.modal=null;state.page=1;render();window.scrollTo?.(0,0)}));
  document.querySelector('#toggle-menu')?.addEventListener('click',()=>{state.mobileMenu=!state.mobileMenu;render();});
+ document.querySelector('#cloud-logout')?.addEventListener('click',cloudBusy(async()=>{
+   await cloud.signOut();C.selected=null;C.spaces=[];state.transactions=[];render();
+ }));
+ document.querySelector('#refresh-cloud')?.addEventListener('click',cloudBusy(async()=>{
+   await syncCloud();render();notify('تم تحديث البيانات من الخادم.');
+ }));
+ document.querySelector('#switch-workspace')?.addEventListener('change',cloudBusy(async e=>{
+   const id=e.target.value;
+   const selected=C.spaces.find(w=>w.id===id);
+   if(!selected)return;
+   C.selected=selected;state.transactions=[];await syncCloud();render();
+ }));
+ document.querySelector('#import-legacy')?.addEventListener('click',cloudBusy(async()=>{
+   if(!CLOUD_ENABLED||!C.selected)throw Error('اختر متجرًا سحابيًا أولًا.');
+   if(state.transactions.length)throw Error('النقل إلى متجر سحابي فارغ فقط. نزّل نسخة احتياطية أولًا.');
+   const raw=localStorage.getItem(TX_KEY);
+   if(raw===null)throw Error('لا يوجد سجل محلي محفوظ على هذا الجهاز.');
+   const rows=validateStoredTransactions(JSON.parse(raw));
+   if(isDemoLedger(rows))throw Error('هذا سجل عرض تجريبي، ولن نرفعه إلى متجر حقيقي.');
+   if(rows.length>1000)throw Error('السجل أكبر من 1000 حركة. راجع خطة النقل أولًا.');
+   const oldBalance=Number(localStorage.getItem(BAL_KEY)??'0');
+   if(number(oldBalance)===null)throw Error('الرصيد الافتتاحي المحلي غير صالح.');
+   if(!confirm('نقل '+rows.length+' حركة إلى '+C.selected.name+'؟ لن نحذف السجل الأصلي من هذا الجهاز.'))return;
+   await cloud.replaceLedger(C.selected.id,rows,oldBalance);
+   await syncCloud();render();notify('تم نقل '+rows.length+' حركة. احتفظ بنسخة احتياطية.');
+ }));
+ document.querySelector('#new-workspace')?.addEventListener('click',()=>{
+   const name=prompt('اسم المتجر الجديد');
+   if(!name)return;
+   cloudBusy(async()=>{const created=await cloud.createWorkspace(name);await syncCloud(created.id);render();})()
+ });
  document.querySelector('#range-control')?.addEventListener('change',e=>{state.range=e.target.value;render();});
  document.querySelector('#new-transaction')?.addEventListener('click',()=>openModal('edit'));
  document.querySelector('#show-import')?.addEventListener('click',()=>openModal('import'));
@@ -350,17 +464,17 @@ function bind(){
  }));
 
  document.querySelector('#export-report')?.addEventListener('click',()=>download('nabd-analysis.json',JSON.stringify(report(),null,2)));
- document.querySelector('#start-fresh')?.addEventListener('click',()=>{if(confirm('ابدأ سجلًا جديدًا دون بيانات العرض؟')){if(save([],false))render();}});
+ document.querySelector('#start-fresh')?.addEventListener('click',async()=>{if(confirm('ابدأ سجلًا جديدًا دون بيانات العرض؟')){if(await save([],false))render();}});
  document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openModal('edit',b.dataset.edit)));
- document.querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click',()=>{
+ document.querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click',async()=>{
   const item=state.transactions.find(x=>x.id===b.dataset.delete);
   if(item&&confirm('حذف الحركة «'+item.description+'» نهائيًا؟')){
    const next=state.transactions.filter(x=>x.id!==item.id);
-   if(save(next,state.demo)){notify('حُذفت الحركة');render();}
+   if(await save(next,state.demo)){notify('حُذفت الحركة');render();}
   }
  }));
  const form=document.querySelector('#transaction-form');
- form?.addEventListener('submit',e=>{
+ form?.addEventListener('submit',async e=>{
   e.preventDefault();
   const data=new FormData(form),previous=state.transactions.find(t=>t.id===state.editId);
   try{
@@ -368,7 +482,7 @@ function bind(){
    item.id=previous?.id||'manual-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
    const base=previous?state.transactions:(state.demo?[]:state.transactions);
    const next=previous?base.map(x=>x.id===item.id?item:x):base.concat(item);
-   if(save(next,!!previous&&state.demo)){state.modal=null;state.editId=null;render();notify('حُفظت الحركة بنجاح');}
+   if(await save(next,!!previous&&state.demo)){state.modal=null;state.editId=null;render();notify('حُفظت الحركة بنجاح');}
   }catch(err){const error=document.querySelector('#form-error');if(error)error.textContent=err.message;}
  });
  const close=()=>{state.modal=null;state.editId=null;render();};
@@ -386,7 +500,7 @@ function bind(){
    const current=state.demo?[]:state.transactions;
    const result=combineWithoutDuplicates(current,items);
    if(result.skipped && !confirm('وجدنا '+result.skipped+' حركة مطابقة تمامًا لما في السجل أو مكررة داخل الملف. هل تريد تجاهل المطابقات وإضافة باقي الحركات فقط؟'))return;
-   if(save(result.transactions,false)){state.modal=null;state.view='transactions';render();notify('أضفنا '+result.added+' حركة، وتجاهلنا '+result.skipped+' مكرر.');}
+   if(await save(result.transactions,false)){state.modal=null;state.view='transactions';render();notify('أضفنا '+result.added+' حركة، وتجاهلنا '+result.skipped+' مكرر.');}
   }catch(err){notify('تعذّر الاستيراد؛ لم نغيّر بياناتك: '+err.message);}
  });
  document.querySelector('#search-transaction')?.addEventListener('input',e=>{
@@ -400,10 +514,16 @@ function bind(){
  document.querySelector('#export-csv')?.addEventListener('click',()=>exportCsv(state.view==='transactions'?filteredTransactions():state.transactions));
  document.querySelectorAll('[data-scenario]').forEach(input=>input.addEventListener('change',e=>{state.scenario[e.target.dataset.scenario]=Number(e.target.value);render()}));
  document.querySelector('#reset-scenario')?.addEventListener('click',()=>{state.scenario={extraCollection:0,reduceExpensesPct:0,delayLargeExpenseDays:0};render()});
- document.querySelector('#balance-form')?.addEventListener('submit',e=>{
+ document.querySelector('#balance-form')?.addEventListener('submit',async e=>{
   e.preventDefault();const n=number(Number(document.querySelector('#opening-balance').value));
   if(n===null){notify('أدخل عددًا صحيحًا ضمن الحدود المسموحة');return;}
-  try{localStorage.setItem(BAL_KEY,String(n));state.openingBalance=n;render();notify('تم حفظ الرصيد الافتتاحي');}
+  try{
+    if(CLOUD_ENABLED){
+      await cloud.updateOpeningBalance(C.selected.id,n);
+      await syncCloud();
+    }else localStorage.setItem(BAL_KEY,String(n));
+    state.openingBalance=n;render();notify('تم حفظ الرصيد الافتتاحي');
+   }
   catch{notify('تعذّر حفظ الرصيد الافتتاحي');}
  });
  document.querySelector('#backup')?.addEventListener('click',()=>download('nabd-backup.json',JSON.stringify({version:2,transactions:state.transactions,openingBalance:state.openingBalance},null,2)));
@@ -416,18 +536,45 @@ function bind(){
    const opening=number(Number(Array.isArray(raw)?0:raw.openingBalance??0));
    if(opening===null)throw new Error('الرصيد الافتتاحي غير صالح');
    if(!confirm('ستُستبدل كل الحركات الحالية. هل حفظت نسخة احتياطية؟'))return;
+   if(CLOUD_ENABLED){
+    if(!C.selected)throw Error('لا توجد مساحة عمل مفعّلة.');
+    await cloud.replaceLedger(C.selected.id,rows,opening);
+    await syncCloud();render();notify('استُعيد السجل والرصيد معًا على الخادم.');return;
+   }
    const oldOpening=localStorage.getItem(BAL_KEY);
    try{localStorage.setItem(BAL_KEY,String(opening));}
    catch{throw new Error('تعذّر حفظ الرصيد الافتتاحي؛ لم نستبدل الحركات');}
-   if(!save(rows,false)){
+   if(!await save(rows,false)){
     try{if(oldOpening===null)localStorage.removeItem(BAL_KEY);else localStorage.setItem(BAL_KEY,oldOpening);}catch{}
     return;
    }
    state.openingBalance=opening;render();notify('تمت استعادة النسخة الاحتياطية');
   }catch(err){notify('لم نستعد الملف: '+err.message);}
  });
- document.querySelector('#demo-reset')?.addEventListener('click',()=>{if(confirm('استبدال كل السجل ببيانات العرض؟')&&save(createDemoTransactions(),true))render()});
- document.querySelector('#clear-ledger')?.addEventListener('click',()=>{if(confirm('مسح جميع الحركات؟ لا يمكن التراجع دون نسخة احتياطية.')&&save([],false))render()});
+ document.querySelector('#demo-reset')?.addEventListener('click',async()=>{
+  if(CLOUD_ENABLED){notify('لا يمكن استبدال بيانات متجر سحابي ببيانات العرض.');return;}
+  if(confirm('استبدال كل السجل ببيانات العرض؟')&&await save(createDemoTransactions(),true))render();
+ });
+ document.querySelector('#clear-ledger')?.addEventListener('click',async()=>{
+   if(!confirm('سيحذف هذا كل حركات المتجر. نزّل نسخة احتياطية أولًا. هل تريد المتابعة؟'))return;
+   try{
+     if(CLOUD_ENABLED){await cloud.replaceLedger(C.selected.id,[],state.openingBalance);await syncCloud();render();}
+     else if(await save([],false))render();
+   }catch(err){notify('لم يتم المسح: '+err.message);}
+ });
 }
-render();
+if(CLOUD_ENABLED)bootCloud();else render();
+async function refreshVisibleCloud(){
+ if(!CLOUD_ENABLED||C.loading||C.busy||!cloud.session||!C.selected||state.modal)return;
+ C.busy=true;
+ try{await syncCloud();render();}
+ catch(err){notify('فشل التحديث السحابي: '+err.message);}
+ finally{C.busy=false;}
+}
+if(CLOUD_ENABLED){
+ document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')void refreshVisibleCloud();
+ });
+ window.addEventListener('focus',()=>void refreshVisibleCloud());
+}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
