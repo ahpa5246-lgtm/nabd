@@ -20,8 +20,8 @@ export function validateTransaction(item, row = '?') {
   const amount = Number(amountText);
   if (!isIsoDate(item.date)) fail('السطر ' + row + ': التاريخ يجب أن يكون YYYY-MM-DD وحقيقيًا');
   if (!/^\d+(?:\.\d+)?$/.test(amountText) || !Number.isSafeInteger(amount) ||
-      amount <= 0 || amount > 1_000_000_000_000) {
-    fail('السطر ' + row + ': المبلغ يجب أن يكون عدد دنانير صحيحًا موجبًا');
+      amount <= 0 || amount > 10_000_000_000) {
+    fail('السطر ' + row + ': المبلغ يجب أن يكون عدد دنانير صحيحًا موجبًا ولا يتجاوز 10 مليارات');
   }
   if (!['income', 'expense'].includes(type)) fail('السطر ' + row + ': النوع income أو expense فقط');
   if (!['completed', 'scheduled'].includes(status)) fail('السطر ' + row + ': الحالة completed أو scheduled فقط');
