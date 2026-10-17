@@ -16,11 +16,10 @@ const cloudBusy=fn=>async event=>{
   catch(err){notify(err?.message||'فشلت العملية دون حفظ البيانات.');}
   finally{C.busy=false;}
 };
-async function syncCloud(){
+async function syncCloud(preferredId=C.selected?.id){
   const workspaces=await cloud.listWorkspaces();
   C.spaces=workspaces;
-  const previous=C.selected?.id;
-  C.selected=workspaces.find(x=>x.id===previous)||workspaces[0]||null;
+  C.selected=workspaces.find(x=>x.id===preferredId)||workspaces[0]||null;
   if(C.selected){
     const rows=await cloud.listTransactions(C.selected.id);
     state.transactions=rows;state.openingBalance=Number(C.selected.opening_balance_iqd);
@@ -68,8 +67,8 @@ function cloudGate(){
  }));
  document.querySelector('#create-workspace')?.addEventListener('submit',cloudBusy(async e=>{
   e.preventDefault();
-  await cloud.createWorkspace(String(new FormData(e.currentTarget).get('name')||''));
-  await syncCloud();render();notify('أُنشئت مساحة المتجر بنجاح.');
+  const created=await cloud.createWorkspace(String(new FormData(e.currentTarget).get('name')||''));
+  await syncCloud(created.id);render();notify('أُنشئت مساحة المتجر بنجاح.');
  }));
  document.querySelector('#logout-cloud')?.addEventListener('click',cloudBusy(async()=>{
   await cloud.signOut();C.selected=null;C.spaces=[];state.transactions=[];render();
@@ -427,7 +426,7 @@ function bind(){
  document.querySelector('#new-workspace')?.addEventListener('click',()=>{
    const name=prompt('اسم المتجر الجديد');
    if(!name)return;
-   cloudBusy(async()=>{await cloud.createWorkspace(name);await syncCloud();render();})()
+   cloudBusy(async()=>{const created=await cloud.createWorkspace(name);await syncCloud(created.id);render();})()
  });
  document.querySelector('#range-control')?.addEventListener('change',e=>{state.range=e.target.value;render();});
  document.querySelector('#new-transaction')?.addEventListener('click',()=>openModal('edit'));
@@ -550,4 +549,17 @@ function bind(){
  });
 }
 if(CLOUD_ENABLED)bootCloud();else render();
+async function refreshVisibleCloud(){
+ if(!CLOUD_ENABLED||C.loading||C.busy||!cloud.session||!C.selected||state.modal)return;
+ C.busy=true;
+ try{await syncCloud();render();}
+ catch(err){notify('فشل التحديث السحابي: '+err.message);}
+ finally{C.busy=false;}
+}
+if(CLOUD_ENABLED){
+ document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')void refreshVisibleCloud();
+ });
+ window.addEventListener('focus',()=>void refreshVisibleCloud());
+}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
