@@ -284,3 +284,8 @@ h3{font-size:15px}small{font-size:12px}
  html{scroll-behavior:auto}
  *,*::before,*::after{transition:none!important;animation:none!important}
 }
+
+
+.range-pick{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #EDE8F3;color:#8E859D;border-radius:11px;padding:7px 10px;white-space:nowrap;font-size:11px}
+.range-pick select{border:0;background:transparent;color:#504363;font-size:11px;max-width:135px}
+@media(max-width:690px){.top-actions{gap:6px}.range-pick{padding:6px}.range-pick select{max-width:95px}.crumb-dot{display:none}}
