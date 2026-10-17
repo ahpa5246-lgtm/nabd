@@ -1,6 +1,6 @@
 // Offline app shell only. Never cache financial exports or third-party requests.
-const CACHE='nabd-static-v2';
-const ASSETS=['./','./index.html','./styles.css','./app.js','./agents.js',
+const CACHE='nabd-product-v3';
+const ASSETS=['./','./index.html','./product-ui.css','./product-app.js','./agents.js',
   './transaction-utils.js','./demo-data.js','./manifest.webmanifest','./privacy.html','./terms.html'];
 const SHELL_PATHS=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).pathname));
 

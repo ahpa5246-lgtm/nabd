@@ -30,7 +30,7 @@ jobs:
             sleep 1
           done
           grep -q 'NABD' /tmp/nabd-response.html
-          for asset in /agents.js /app.js /transaction-utils.js /sw.js /privacy.html; do
+          for asset in /agents.js /product-app.js /product-ui.css /transaction-utils.js /sw.js /privacy.html; do
             curl --fail --silent --show-error "http://127.0.0.1:8765$asset" >/dev/null
           done
 
@@ -47,7 +47,7 @@ jobs:
             if curl -fsS http://127.0.0.1:8765/ >/dev/null; then break; fi
             sleep 1
           done
-          node tests/real-browser-smoke.mjs
+          node tests/product-browser.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'pull_request' && always()
         with:
