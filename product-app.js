@@ -360,6 +360,7 @@ function bind(){
    const items=parseCsvTransactions(await file.text(),'csv-'+Date.now());
    const current=state.demo?[]:state.transactions;
    const result=combineWithoutDuplicates(current,items);
+   if(result.skipped && !confirm('وجدنا '+result.skipped+' حركة مطابقة تمامًا لما في السجل أو مكررة داخل الملف. هل تريد تجاهل المطابقات وإضافة باقي الحركات فقط؟'))return;
    if(save(result.transactions,false)){state.modal=null;state.view='transactions';render();notify('أضفنا '+result.added+' حركة، وتجاهلنا '+result.skipped+' مكرر.');}
   }catch(err){notify('تعذّر الاستيراد؛ لم نغيّر بياناتك: '+err.message);}
  });
@@ -390,9 +391,14 @@ function bind(){
    const opening=number(Number(Array.isArray(raw)?0:raw.openingBalance??0));
    if(opening===null)throw new Error('الرصيد الافتتاحي غير صالح');
    if(!confirm('ستُستبدل كل الحركات الحالية. هل حفظت نسخة احتياطية؟'))return;
-   if(!save(rows,false))return;
-   state.openingBalance=opening;try{localStorage.setItem(BAL_KEY,String(opening));}catch{notify('استُعيدت الحركات، لكن تعذّر حفظ الرصيد الافتتاحي.');}
-   render();notify('تمت استعادة النسخة الاحتياطية');
+   const oldOpening=localStorage.getItem(BAL_KEY);
+   try{localStorage.setItem(BAL_KEY,String(opening));}
+   catch{throw new Error('تعذّر حفظ الرصيد الافتتاحي؛ لم نستبدل الحركات');}
+   if(!save(rows,false)){
+    try{if(oldOpening===null)localStorage.removeItem(BAL_KEY);else localStorage.setItem(BAL_KEY,oldOpening);}catch{}
+    return;
+   }
+   state.openingBalance=opening;render();notify('تمت استعادة النسخة الاحتياطية');
   }catch(err){notify('لم نستعد الملف: '+err.message);}
  });
  document.querySelector('#demo-reset')?.addEventListener('click',()=>{if(confirm('استبدال كل السجل ببيانات العرض؟')&&save(createDemoTransactions(),true))render()});
