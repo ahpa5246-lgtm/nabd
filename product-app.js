@@ -127,8 +127,8 @@ function trendChart(){
  '<div class="chart-legend"><span><i class="dot purple"></i> الوارد</span><span><i class="dot peach"></i> الصادر</span></div></div>'+
  '<div class="chart-grid"><div class="chart-guides" aria-hidden="true"><span></span><span></span><span></span><span></span></div>'+
  '<div class="months">'+months.map(m=>'<div class="month-col" title="'+escapeHTML(m.key+' — وارد: '+money(m.income)+'، صادر: '+money(m.expenses))+'">'+
- '<div class="bar-group"><i class="bar revenue" style="height:'+Math.max(1,m.income/max*100).toFixed(1)+'%"></i>'+
- '<i class="bar expense" style="height:'+Math.max(1,m.expenses/max*100).toFixed(1)+'%"></i></div><span>'+escapeHTML(m.label)+'</span></div>').join('')+'</div></div></section>';
+ '<div class="bar-group">'+(m.income>0?'<i class="bar revenue" style="height:'+Math.max(1,m.income/max*100).toFixed(1)+'%"></i>':'')+
+ (m.expenses>0?'<i class="bar expense" style="height:'+Math.max(1,m.expenses/max*100).toFixed(1)+'%"></i>':'')+'</div><span>'+escapeHTML(m.label)+'</span></div>').join('')+'</div></div></section>';
 }
 function zeroGraph(forecast){
  const values=forecast.map(p=>p.balance),max=Math.max(1,...values.map(x=>Math.abs(x)));
