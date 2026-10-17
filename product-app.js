@@ -30,9 +30,9 @@ const ICONS={
 };
 const ic=(name,size=20)=>'<svg viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[name]||ICONS.info)+'</svg>';
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-const money=value=>compactMoney(value);
+const money=value=>new Intl.NumberFormat('en-US',{maximumFractionDigits:0}).format(value)+' د.ع';
 const isDemoLedger=rows=>rows.length===16&&rows.every(row=>/^d(?:[1-9]|1[0-6])$/.test(row.id));
-const number=value=>Number.isSafeInteger(value)&&value>=0&&value<=1_000_000_000_000?value:null;
+const number=value=>Number.isSafeInteger(value)&&Math.abs(value)<=1_000_000_000_000?value:null;
 const state={view:'overview',transactions:[],demo:false,error:null,openingBalance:0,range:'30',search:'',type:'all',status:'all',
   modal:null,editId:null,scenario:{extraCollection:0,reduceExpensesPct:0,delayLargeExpenseDays:0},mobileMenu:false, page:1};
 const load=()=>{
@@ -253,7 +253,7 @@ function agentsView(r){
 function settingsView(){
  return header('الإعدادات والخصوصية','إدارة بياناتك والافتراضات التي تعتمد عليها الحسابات')+
  '<div class="settings-grid"><section class="panel"><div class="panel-head"><div><h2>أساس الحساب</h2><p>حتى لا نخلط صافي الحركات بالرصيد الحقيقي</p></div></div>'+
- '<form id="balance-form"><label class="form-field"><span>الرصيد الافتتاحي بالدينار العراقي</span><input id="opening-balance" type="number" min="0" max="1000000000000" step="1" required value="'+state.openingBalance+'"></label>'+
+ '<form id="balance-form"><label class="form-field"><span>الرصيد الافتتاحي بالدينار العراقي</span><input id="opening-balance" type="number" min="-1000000000000" max="1000000000000" step="1" required value="'+state.openingBalance+'"></label>'+
  '<p class="field-hint">ضع الرصيد الموجود قبل أول حركة في السجل. لا نعتبر الصافي رصيدًا بنكيًا مؤكدًا إلا بعد المصالحة.</p><button class="btn btn-primary" type="submit">'+ic('check',18)+' حفظ الرصيد</button></form></section>'+
  '<section class="panel"><div class="panel-head"><div><h2>نسخ احتياطية وملفات</h2><p>لا تعتمد على تخزين المتصفح وحده</p></div></div>'+
  '<div class="setting-actions"><button class="setting-button" id="backup">'+ic('download',21)+'<span><b>تصدير نسخة احتياطية</b><small>ملف JSON يحتفظ بالحركات والرصيد الافتتاحي</small></span></button>'+
@@ -376,7 +376,7 @@ function bind(){
  document.querySelector('#reset-scenario')?.addEventListener('click',()=>{state.scenario={extraCollection:0,reduceExpensesPct:0,delayLargeExpenseDays:0};render()});
  document.querySelector('#balance-form')?.addEventListener('submit',e=>{
   e.preventDefault();const n=number(Number(document.querySelector('#opening-balance').value));
-  if(n===null){notify('أدخل عددًا صحيحًا غير سالب ضمن الحد');return;}
+  if(n===null){notify('أدخل عددًا صحيحًا ضمن الحدود المسموحة');return;}
   try{localStorage.setItem(BAL_KEY,String(n));state.openingBalance=n;render();notify('تم حفظ الرصيد الافتتاحي');}
   catch{notify('تعذّر حفظ الرصيد الافتتاحي');}
  });
