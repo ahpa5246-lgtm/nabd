@@ -58,3 +58,22 @@ test('demo stays distinct from real imports, malformed CSV is atomic, and user t
   await restore.onchange(restoreEvent);
   assert.equal(JSON.parse(state.get('nabd.transactions.v1')).length,1,'restore replaces saved state');
 });
+
+
+test('corrupted local financial storage is never overwritten during app boot', async()=>{
+  const app={innerHTML:''},toast={hidden:true,textContent:''};
+  let writes=0;
+  globalThis.localStorage={
+    getItem(){return '{unreadable financial ledger';},
+    setItem(){writes++;}
+  };
+  globalThis.document={
+    querySelector(sel){return sel==='#app'?app:sel==='#toast'?toast:{onclick:null}},
+    querySelectorAll(){return []},
+  };
+  globalThis.window={confirm:()=>false};
+  Object.defineProperty(globalThis,'navigator',{value:{},configurable:true});
+  await import('../app.js?ui-smoke=2');
+  assert.match(app.innerHTML,/تعذّر قراءة البيانات/);
+  assert.equal(writes,0,'No auto-save should destroy damaged original localStorage');
+});
