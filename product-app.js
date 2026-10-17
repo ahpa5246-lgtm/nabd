@@ -341,7 +341,8 @@ function assistantView(r){
 }
 function settingsView(){
  return header('الإعدادات والخصوصية','إدارة بياناتك والافتراضات التي تعتمد عليها الحسابات')+
- (CLOUD_ENABLED?'<section class="panel cloud-settings"><h2>مساحات متاجرك</h2><p>كل متجر له بياناته وصلاحياته المستقلة، ولا يمكن الوصول إلى سجلاته من حساب آخر.</p><div class="cloud-space-controls"><select id="switch-workspace" aria-label="اختيار المتجر">'+C.spaces.map(w=>'<option value="'+escapeHTML(w.id)+'" '+(w.id===C.selected?.id?'selected':'')+'>'+escapeHTML(w.name)+'</option>').join('')+'</select><button id="new-workspace" class="btn btn-secondary">إضافة متجر</button></div></section>':'')+
+ (CLOUD_ENABLED?'<section class="panel cloud-settings"><h2>مساحات متاجرك</h2><p>كل متجر له بياناته وصلاحياته المستقلة، ولا يمكن الوصول إلى سجلاته من حساب آخر.</p><div class="cloud-space-controls"><select id="switch-workspace" aria-label="اختيار المتجر">'+C.spaces.map(w=>'<option value="'+escapeHTML(w.id)+'" '+(w.id===C.selected?.id?'selected':'')+'>'+escapeHTML(w.name)+'</option>').join('')+'</select><button id="new-workspace" class="btn btn-secondary">إضافة متجر</button></div>'+
+ '<p class="cloud-migrate-note">يمكن نقل سجل قديم من هذا الجهاز بعد التأكد أنه حقيقي وأن المتجر الجديد فارغ.</p><button id="import-legacy" class="btn btn-secondary">مراجعة نقل السجل القديم</button></section>':'')+
  '<div class="settings-grid"><section class="panel"><div class="panel-head"><div><h2>أساس الحساب</h2><p>حتى لا نخلط صافي الحركات بالرصيد الحقيقي</p></div></div>'+
  '<form id="balance-form"><label class="form-field"><span>الرصيد الافتتاحي بالدينار العراقي</span><input id="opening-balance" type="number" min="-1000000000000" max="1000000000000" step="1" required value="'+state.openingBalance+'"></label>'+
  '<p class="field-hint">ضع الرصيد الموجود قبل أول حركة في السجل. لا نعتبر الصافي رصيدًا بنكيًا مؤكدًا إلا بعد المصالحة.</p><button class="btn btn-primary" type="submit">'+ic('check',18)+' حفظ الرصيد</button></form></section>'+
@@ -422,6 +423,20 @@ function bind(){
    const selected=C.spaces.find(w=>w.id===id);
    if(!selected)return;
    C.selected=selected;state.transactions=[];await syncCloud();render();
+ }));
+ document.querySelector('#import-legacy')?.addEventListener('click',cloudBusy(async()=>{
+   if(!CLOUD_ENABLED||!C.selected)throw Error('اختر متجرًا سحابيًا أولًا.');
+   if(state.transactions.length)throw Error('النقل إلى متجر سحابي فارغ فقط. نزّل نسخة احتياطية أولًا.');
+   const raw=localStorage.getItem(TX_KEY);
+   if(raw===null)throw Error('لا يوجد سجل محلي محفوظ على هذا الجهاز.');
+   const rows=validateStoredTransactions(JSON.parse(raw));
+   if(isDemoLedger(rows))throw Error('هذا سجل عرض تجريبي، ولن نرفعه إلى متجر حقيقي.');
+   if(rows.length>1000)throw Error('السجل أكبر من 1000 حركة. راجع خطة النقل أولًا.');
+   const oldBalance=Number(localStorage.getItem(BAL_KEY)??'0');
+   if(number(oldBalance)===null)throw Error('الرصيد الافتتاحي المحلي غير صالح.');
+   if(!confirm('نقل '+rows.length+' حركة إلى '+C.selected.name+'؟ لن نحذف السجل الأصلي من هذا الجهاز.'))return;
+   await cloud.replaceLedger(C.selected.id,rows,oldBalance);
+   await syncCloud();render();notify('تم نقل '+rows.length+' حركة. احتفظ بنسخة احتياطية.');
  }));
  document.querySelector('#new-workspace')?.addEventListener('click',()=>{
    const name=prompt('اسم المتجر الجديد');
