@@ -54,6 +54,7 @@ try{
  await page.locator('#show-import').click();
  const csv='date,amount,type,category,description,channel,status\n2026-10-16,50000,expense,موردون,"دفعة, للمورد",cash,completed\n';
  await page.locator('#csv').setInputFiles({name:'transactions.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('nabd.transactions.v1')||'[]').length===2,{timeout:10000});
  assert.equal((await page.evaluate(()=>JSON.parse(localStorage.getItem('nabd.transactions.v1')))).length,2);
  await page.locator('#show-import').click();
  await page.locator('#csv').setInputFiles({name:'transactions.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
