@@ -193,7 +193,10 @@ revoke all on public.nabd_workspaces,public.nabd_memberships,
 grant select,insert on public.nabd_workspaces to authenticated;
 grant update(name,opening_balance_iqd) on public.nabd_workspaces to authenticated;
 grant select on public.nabd_memberships to authenticated;
-grant select,insert,delete on public.nabd_transactions to authenticated;
+grant select,delete on public.nabd_transactions to authenticated;
+-- The browser cannot forge creation identity, timestamps or edit versions.
+grant insert(id,workspace_id,date,amount,type,category,description,channel,status)
+  on public.nabd_transactions to authenticated;
 grant update(date,amount,type,category,description,channel,status) on public.nabd_transactions to authenticated;
 grant select on public.nabd_transaction_audit to authenticated;
 
