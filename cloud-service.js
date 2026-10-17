@@ -9,7 +9,14 @@ export function cloudConfigured(config=CLOUD_CONFIG) {
   try {url=new URL(config.url);} catch{return false;}
   if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash) return false;
   const key=config.publishableKey.trim();
-  return key.length>20 && !/^(sb_secret_|service_role)/i.test(key);
+  if(key.startsWith('sb_publishable_'))return key.length>24;
+  if(!key.startsWith('eyJ'))return false;
+  try{
+    const parts=key.split('.');
+    if(parts.length!==3)return false;
+    const raw=atob(parts[1].replace(/-/g,'+').replace(/_/g,'/'));
+    return JSON.parse(raw).role==='anon';
+  }catch{return false;}
 }
 export const CLOUD_ENABLED=cloudConfigured();
 export const CLOUD_LIMIT=10000;
@@ -66,9 +73,11 @@ export class CloudClient {
     if(!this.session)throw new Error('يجب تسجيل الدخول أولًا.');
     if(this.session.expires_at<=Math.floor(this.clock()/1000)+45){
       const old=this.session.refresh_token;
-      const data=await this._request('/auth/v1/token?grant_type=refresh_token',
-        {method:'POST',body:{refresh_token:old},auth:false});
-      this._setSession(data);
+      try{
+        const data=await this._request('/auth/v1/token?grant_type=refresh_token',
+          {method:'POST',body:{refresh_token:old},auth:false});
+        this._setSession(data);
+      }catch(err){this.clearSession();throw err;}
     }
   }
   async restoreSession(){
@@ -87,6 +96,11 @@ export class CloudClient {
   }
   async signUp(email,password){
     return this._request('/auth/v1/signup',{method:'POST',auth:false,body:{email,password}});
+  }
+  async requestPasswordReset(email){
+    const address=String(email||'').trim();
+    if(!address.includes('@')||address.length>254)throw Error('أدخل بريدًا إلكترونيًا صالحًا.');
+    await this._request('/auth/v1/recover',{method:'POST',auth:false,body:{email:address}});
   }
   async signIn(email,password){
     const data=await this._request('/auth/v1/token?grant_type=password',
