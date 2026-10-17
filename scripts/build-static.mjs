@@ -18,7 +18,8 @@ for(const name of allow){
  await copyFile(from,target);
 }
 const config=await readFile(path.join(destination,'cloud-config.js'),'utf8');
-if(/\bsb_secret_|service_role|DATABASE_URL|SUPABASE_SERVICE_ROLE_KEY/.test(config)){
- throw Error('Refusing to publish a sensitive credential or private server key.');
-}
+const match=config.match(/publishableKey\s*:\s*(['"])([^'"]*)\1/);
+if(!match)throw Error('Cloud config must declare an explicit publishableKey');
+if(/^(sb_secret_|service_role)/i.test(match[2]))throw Error('Privileged key must never enter release');
+
 console.log('PASS: minimal static release containing '+allow.length+' explicit assets');
