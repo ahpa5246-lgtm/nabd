@@ -90,3 +90,24 @@ GitHub Actions also starts a static server, controls a **real Chrome browser** u
 The “current balance” begins with an **assumed opening balance of zero**, so the result is not your verified bank balance unless the imported history covers all relevant transactions. The 14-day output is a deterministic schedule-based scenario, **not** an AI-trained predictive model. The six named stages are explainable JavaScript operations, **not** six independent LLM agents. Browser localStorage and raw backup exports can expose financial details on a shared machine or be lost when browser data is cleared. No real medical, banking or merchant data was used in these tests.
 
 Production scope, real opening balances, multi-account support, actual local hosting cost and whether intelligent autonomous agents are necessary require owner decisions before expansion. There has been no public deployment or authorization to incur spending.
+
+
+## NABD Product UI V2 — current proposed redesign
+
+This feature branch is based on the financial-correctness PR #1. The active frontend entrypoint is now the new product-app.js and product-ui.css, linked from index.html; the older app.js and styles.css remain in the base branch for a staged and reversible migration. The web page itself requires no npm build or external UI/font package. The existing Render static site manifest stays unchanged, and an updated offline shell includes the new files.
+
+**UI is intentionally truthful:** Purple/light FinSync-inspired responsive layout, real dashboard cards, an actual six-month historical chart and category donut driven by stored transactions; search/type/status filters and 20-item pagination; create/edit/delete, CSV import and export, opening balance and backup restore, local financial Q&A, what-if scenarios and explainable risk notes. We did **not** copy third-party UI source code, import mock wallets or claim multi-user authentication that does not exist.
+
+Current financial numbers are computed locally and are **not bank-verified**. The account starting balance is owner-provided; it may be negative, and completed entries plus that balance determine the displayed net. The user is warned that scheduled income is uncertain and that account reconciliation has not been performed. Sample/demo data is marked prominently and kept separate from new real entries.
+
+### QA / running
+
+Local static preview: python -m http.server 8080 — then open http://localhost:8080
+
+Dependency-free: npm run check && npm test
+
+On GitHub Actions, a **real Chrome** E2E script (tests/product-browser.mjs) checks desktop and narrow phone viewports, data persistence, create/edit/delete, search, CSV import/deduplication, saved opening balance, what-if behavior, local Q&A and offline service worker. Synthetic preview screenshots are uploaded by CI and deleted after seven days. The old mocked-browser tests still exercise the previous safety-critical app entrypoint while transition is staged. Full screen-reader, manual merchant trials and an independent security review remain pending.
+
+### Production development gate
+
+Despite the product-quality UI, the current version is a **single-browser local financial tool**, not a secure account-based merchant SaaS. For real merchants, a separate owner-approved and costed backend phase must define authentication, tenant isolation, transaction auditability, backup/restore, retention/deletion and concurrent editing. Never enter real merchant-sensitive records into a public demo deployment before these controls are assessed. Read docs/PRODUCT_UI_V2_DECISIONS.md for source analysis and risk register.
