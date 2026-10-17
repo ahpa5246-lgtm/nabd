@@ -11,6 +11,19 @@ try {
   await page.goto(base,{waitUntil:'domcontentloaded'});
   await page.getByText('وضع العرض:').waitFor({timeout:12000});
   await page.screenshot({path:'artifacts/nabd-desktop-demo.png',fullPage:true});
+  // Financial charts must not render a negative balance as a positive-height bar above zero.
+  const chartGeometry=await page.locator('.bars').first().evaluate(root=>{
+    const axis=root.querySelector('.zero-line')?.getBoundingClientRect().top;
+    const negative=[...root.querySelectorAll('.bar-slot i.bad')].map(x=>x.getBoundingClientRect().top);
+    const positive=[...root.querySelectorAll('.bar-slot i:not(.bad)')].map(x=>x.getBoundingClientRect().bottom);
+    return {axis,negative,positive};
+  });
+  assert.ok(chartGeometry.negative.length>0&&chartGeometry.positive.length>0,'synthetic demo must exercise both signs');
+  assert.ok(chartGeometry.negative.every(y=>Math.abs(y-chartGeometry.axis)<5),
+    'negative bars must start at zero and extend downward');
+  assert.ok(chartGeometry.positive.every(y=>Math.abs(y-chartGeometry.axis)<5),
+    'positive bars must end at zero and extend upward');
+
 
   const clientErrors=[];
   page.on('pageerror',error=>clientErrors.push(String(error)));
