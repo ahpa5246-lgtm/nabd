@@ -44,7 +44,7 @@ try{
  await page.getByRole('heading',{name:'من الأرقام إلى الفهم'}).waitFor();
  assert.ok((await page.locator('.metric-card').allTextContents()).some(x=>x.includes('220')));
  // Opening balance changes derived report, no fake wallet/account.
- await page.locator('.sidebar [data-v=settings]').click();
+ await page.locator('.sidebar .nav-item[data-v=settings]').click();
  await page.locator('#opening-balance').fill('500000');
  await page.locator('#balance-form button[type=submit]').click();
  assert.equal(await page.evaluate(()=>localStorage.getItem('nabd.opening-balance.v1')),'500000');
