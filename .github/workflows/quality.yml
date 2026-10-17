@@ -48,6 +48,7 @@ jobs:
             sleep 1
           done
           node tests/product-browser.mjs
+          node tests/cloud-browser.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'pull_request' && always()
         with:
