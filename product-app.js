@@ -103,7 +103,7 @@ function baseLayout(content,r){
  '<div class="main-shell"><header class="topbar"><div class="breadcrumbs">'+
  '<button class="mobile-toggle" id="toggle-menu" aria-label="فتح القائمة">'+ic('menu')+'</button>'+
  '<span class="crumb-dot"></span><span>مساحة العمل</span>'+ic('chevron',15)+'<strong>'+current+'</strong></div>'+
- '<div class="top-actions">'+source+'<span class="today-badge">'+ic('calendar',16)+' '+escapeHTML(fullDate(todayIso()))+'</span>'+
+ '<div class="top-actions"><label class="range-pick" for="range-control">الفترة <select id="range-control"><option value="30" '+(state.range==='30'?'selected':'')+'>آخر 30 يومًا</option><option value="90" '+(state.range==='90'?'selected':'')+'>آخر 90 يومًا</option><option value="month" '+(state.range==='month'?'selected':'')+'>الشهر الحالي</option><option value="all" '+(state.range==='all'?'selected':'')+'>الكل</option></select></label>'+source+'<span class="today-badge">'+ic('calendar',16)+' '+escapeHTML(fullDate(todayIso()))+'</span>'+
  '<button class="round-btn" id="export-report" title="تصدير ملخص مالي" aria-label="تصدير ملخص مالي">'+ic('download',18)+'</button></div></header>'+
  '<main id="workspace" class="page-body">'+
  (state.demo?'<div class="demo-banner" role="status">'+ic('info',19)+' <div><b>هذه بيانات للعرض فقط</b><span>كل الأرقام افتراضية. عند إضافة أول حركة حقيقية نبدأ سجلًا نظيفًا.</span></div><button id="start-fresh">بدء سجل حقيقي</button></div>':'')+
@@ -319,6 +319,7 @@ function openModal(mode,id=null){state.modal=mode;state.editId=id;render();setTi
 function bind(){
  document.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{state.view=b.dataset.v;state.mobileMenu=false;state.modal=null;state.page=1;render();window.scrollTo?.(0,0)}));
  document.querySelector('#toggle-menu')?.addEventListener('click',()=>{state.mobileMenu=!state.mobileMenu;render();});
+ document.querySelector('#range-control')?.addEventListener('change',e=>{state.range=e.target.value;render();});
  document.querySelector('#new-transaction')?.addEventListener('click',()=>openModal('edit'));
  document.querySelector('#show-import')?.addEventListener('click',()=>openModal('import'));
  document.querySelector('#go-transactions')?.addEventListener('click',()=>{state.view='transactions';render()});
