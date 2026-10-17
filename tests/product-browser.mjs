@@ -69,6 +69,11 @@ try{
  await page.locator('.sidebar [data-v=transactions]').click();
  await page.locator('[data-delete]').first().click();
  assert.equal((await page.evaluate(()=>JSON.parse(localStorage.getItem('nabd.transactions.v1')))).length,1);
+ await page.locator('.sidebar .nav-item[data-v=assistant]').click();
+ await page.getByRole('heading',{name:'اسأل بياناتك المالية'}).waitFor();
+ await page.locator('[data-question]').first().click();
+ assert.equal(await page.locator('.chat-line').count(),3,'local assistant must generate response from saved data');
+ assert.ok((await page.locator('.chat-line.nabd').last().textContent()).includes('رصيد'));
  assert.deepEqual(errors,[],'No client-side JavaScript errors');
  await context.close();
  // Fresh mobile first-run; no claims of production auth or paid backend.
