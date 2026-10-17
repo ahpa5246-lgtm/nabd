@@ -93,4 +93,23 @@ function bind(){
   });
 }
 function ask(){let q=document.querySelector('#q')?.value.trim();if(!q)return;msgs.push({r:'u',t:q},{r:'n',t:answerQuestion(q,runAgents(tx))});render()}
-function render(){let r=runAgents(tx),x=view=='overview'?overview(r):view=='transactions'?transactions():view=='agents'?agents(r):view=='scenarios'?scenarios():view=='assistant'?assistant(r):settings(r);A.innerHTML=shell(x);bind()}render();save();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+function render(){
+  if(startupFault){
+    A.innerHTML='<main class="content"><section class="card"><h1>تعذّر قراءة البيانات المحفوظة</h1><p>لم نكتب فوق الملف الأصلي. يمكنك تنزيل البيانات التالفة لمحاولة استعادتها أو بدء سجل جديد بعد التأكد.</p><button id="salvage">تنزيل النسخة الخام</button> <button id="recover" class="danger">بدء سجل فارغ بعد التأكيد</button></section></main>';
+    document.querySelector('#salvage').onclick=()=>dl('nabd-unreadable-storage.txt',startupFault.raw??'Storage unavailable');
+    document.querySelector('#recover').onclick=()=>{
+      if(confirmReplace('سيتم استبدال السجل الذي تعذّر قراءته. هل نزّلت النسخة الخام؟')){
+        if(persist([],false)){startupFault=null;render()}
+      }
+    };
+    return;
+  }
+  const r=runAgents(tx);
+  const x=view==='overview'?overview(r):view==='transactions'?transactions():view==='agents'?agents(r):view==='scenarios'?scenarios():view==='assistant'?assistant(r):settings(r);
+  const note=isDemo
+    ?'<div class="notice" role="status"><b>وضع العرض:</b> الأرقام افتراضية. أول CSV صالح سيبدأ سجلًا جديدًا بدل خلطه بالبيانات التجريبية.</div>'
+    :'<div class="notice" role="status">الحساب يبدأ من رصيد افتتاحي مفترض أنه صفر. إذا كانت الحركات لا تشمل التاريخ الكامل، فقد لا يساوي الصافي رصيدك الفعلي. راجع النتائج قبل أي قرار مالي.</div>';
+  A.innerHTML=shell(note+x);bind();
+}
+render();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
