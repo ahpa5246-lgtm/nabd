@@ -29,7 +29,7 @@ test('sign-in and refresh retain tokens in tab memory, never automatically in lo
   const calls=[],storage=fakeStore();let now=1700000000000;
   const client=new CloudClient({config,storage,clock:()=>now,transport:async(url,options)=>{
     calls.push({url,options});
-    if(url.includes('grant_type=password'))return ok({access_token:'user-access',refresh_token:'rotate-this',expires_in:10});
+    if(url.includes('grant_type=password'))return ok({access_token:'user-access',refresh_token:'rotate-this',expires_in:60});
     if(url.includes('grant_type=refresh_token'))return ok({access_token:'new-access',refresh_token:'new-refresh',expires_in:3600});
     if(url.endsWith('/auth/v1/user'))return ok({id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'});
     if(url.includes('nabd_workspaces'))return ok([]);
@@ -38,7 +38,7 @@ test('sign-in and refresh retain tokens in tab memory, never automatically in lo
   await client.signIn('shop@example.test','somepassword');
   assert.equal(client.session.access_token,'user-access');
   assert.ok(storage.has('nabd.cloud.session.v1'));
-  now+=12000;
+  now+=20000;
   await client.listWorkspaces();
   assert.equal(client.session.access_token,'new-access');
   assert.ok(calls.some(c=>c.options.headers.Authorization==='Bearer new-access'));
