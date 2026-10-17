@@ -31,7 +31,7 @@ const ICONS={
 const ic=(name,size=20)=>'<svg viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[name]||ICONS.info)+'</svg>';
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const money=value=>new Intl.NumberFormat('en-US',{maximumFractionDigits:0}).format(value)+' د.ع';
-const isDemoLedger=rows=>rows.length===16&&rows.every(row=>/^d(?:[1-9]|1[0-6])$/.test(row.id));
+const isDemoLedger=rows=>rows.length>0&&rows.length<=16&&rows.every(row=>/^d(?:[1-9]|1[0-6])$/.test(row.id));
 const number=value=>Number.isSafeInteger(value)&&Math.abs(value)<=1_000_000_000_000?value:null;
 const state={view:'overview',transactions:[],demo:false,error:null,openingBalance:0,range:'30',search:'',type:'all',status:'all',
   modal:null,editId:null,scenario:{extraCollection:0,reduceExpensesPct:0,delayLargeExpenseDays:0},mobileMenu:false, page:1};
@@ -74,7 +74,7 @@ function summary(rows=state.transactions){
 function groupedMonths(){
   const now=todayIso(), out=[];
   for(let i=5;i>=0;i--){
-    const d=new Date(now+'T12:00:00');
+    const d=new Date(now.slice(0,7)+'-01T12:00:00');
     d.setMonth(d.getMonth()-i);
     const key=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0')].join('-');
     const rows=state.transactions.filter(t=>t.status==='completed'&&t.date.slice(0,7)===key&&t.date<=now);
@@ -331,7 +331,7 @@ function bind(){
   const item=state.transactions.find(x=>x.id===b.dataset.delete);
   if(item&&confirm('حذف الحركة «'+item.description+'» نهائيًا؟')){
    const next=state.transactions.filter(x=>x.id!==item.id);
-   if(save(next,false)){notify('حُذفت الحركة');render();}
+   if(save(next,state.demo)){notify('حُذفت الحركة');render();}
   }
  }));
  const form=document.querySelector('#transaction-form');
@@ -341,9 +341,9 @@ function bind(){
   try{
    const item=validateTransaction(Object.fromEntries(data),1);
    item.id=previous?.id||'manual-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
-   const base=state.demo?[]:state.transactions;
+   const base=previous?state.transactions:(state.demo?[]:state.transactions);
    const next=previous?base.map(x=>x.id===item.id?item:x):base.concat(item);
-   if(save(next,false)){state.modal=null;state.editId=null;render();notify('حُفظت الحركة بنجاح');}
+   if(save(next,!!previous&&state.demo)){state.modal=null;state.editId=null;render();notify('حُفظت الحركة بنجاح');}
   }catch(err){const error=document.querySelector('#form-error');if(error)error.textContent=err.message;}
  });
  const close=()=>{state.modal=null;state.editId=null;render();};
