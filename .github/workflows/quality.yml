@@ -16,13 +16,20 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
+      - name: Create isolated static release
+        run: |
+          node scripts/build-static.mjs
+          test ! -e dist/supabase
+          test ! -e dist/tests
+          test ! -e dist/AGENTS.md
+          test ! -e dist/.github
       - name: Static syntax
         run: npm run check
       - name: Financial regression suite
         run: npm test
       - name: Static-server smoke
         run: |
-          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/nabd-http.log 2>&1 &
+          python3 -m http.server 8765 --directory dist --bind 127.0.0.1 > /tmp/nabd-http.log 2>&1 &
           server=$!
           trap 'kill "$server" 2>/dev/null || true' EXIT
           for i in 1 2 3 4 5; do
@@ -30,7 +37,7 @@ jobs:
             sleep 1
           done
           grep -q 'NABD' /tmp/nabd-response.html
-          for asset in /agents.js /product-app.js /product-ui.css /transaction-utils.js /sw.js /privacy.html; do
+          for asset in /agents.js /product-app.js /product-ui.css /cloud-service.js /cloud-config.js /transaction-utils.js /sw.js /privacy.html; do
             curl --fail --silent --show-error "http://127.0.0.1:8765$asset" >/dev/null
           done
 
@@ -40,7 +47,7 @@ jobs:
       - name: Verify actual desktop/mobile UI and offline PWA
         if: github.event_name == 'pull_request'
         run: |
-          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/nabd-browser-server.log 2>&1 &
+          python3 -m http.server 8765 --directory dist --bind 127.0.0.1 > /tmp/nabd-browser-server.log 2>&1 &
           server=$!
           trap 'kill "$server" 2>/dev/null || true' EXIT
           for i in 1 2 3 4 5; do
