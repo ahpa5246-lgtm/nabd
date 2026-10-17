@@ -111,3 +111,14 @@ On GitHub Actions, a **real Chrome** E2E script (tests/product-browser.mjs) chec
 ### Production development gate
 
 Despite the product-quality UI, the current version is a **single-browser local financial tool**, not a secure account-based merchant SaaS. For real merchants, a separate owner-approved and costed backend phase must define authentication, tenant isolation, transaction auditability, backup/restore, retention/deletion and concurrent editing. Never enter real merchant-sensitive records into a public demo deployment before these controls are assessed. Read docs/PRODUCT_UI_V2_DECISIONS.md for source analysis and risk register.
+
+
+## Merchant cloud foundation — optional (draft PR #3)
+
+The new [cloud setup guide](docs/CLOUD_SETUP.md) explains each owner-controlled activation step and why free infrastructure is only a testing budget, not a merchant-ready SLA. With cloud-config.js left blank, NABD behaves as the original independent local demo. Connecting a dedicated Supabase project (public URL + publishable key only) **after applying the SQL migration** enables email/password authentication, per-merchant workspaces, server-stored transactions, device-to-device refresh and owner-confirmed backup restoration. Never paste a service role, sb_secret key, SMTP password or database password into a frontend file.
+
+Backend isolation is enforced through PostgreSQL RLS, member roles, narrow grants, version checks, and row-level audit events. Test identities in GitHub Actions cannot read or alter another business's rows. A real Chrome test exercises an authenticated merchant interface against simulated Auth/Data REST responses. **No actual Supabase account has been connected or tested here.** Real merchant signup cannot be opened with Supabase's built-in limited test SMTP, and the Free plan has no managed database backups.
+
+The site build now publishes only a tightly defined dist allowlist through Render static hosting, not repository source, tests or SQL. Security response headers are declared in render.yaml. The cloud app deliberately rejects offline writes rather than falsely claiming that they synchronized. Existing local financial records can be imported into an EMPTY cloud workspace only after explicit owner confirmation; the original local copy remains untouched.
+
+Do not accept real merchant financial data or sell this as a supported hosted SaaS until email deliverability, privacy terms, incident response, restore drills, full session and tenant integration tests, operating costs and legal responsibility are independently checked.
