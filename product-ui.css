@@ -324,3 +324,31 @@ h3{font-size:15px}small{font-size:12px}
 .assistant-qualifier svg{flex:none}
 @media(max-width:920px){.assistant-layout{grid-template-columns:1fr}}
 @media(max-width:690px){.question-form{flex-wrap:wrap}.question-form input{flex-basis:100%}.chat-thread{min-height:280px}.chat-line{max-width:94%}}
+
+
+/* Merchant cloud authentication and workspace UI */
+.cloud-gate{min-height:100vh;display:grid;place-items:center;background:
+ radial-gradient(circle at 83% 15%,#E9DFFD 0,transparent 34%),
+ radial-gradient(circle at 10% 85%,#F4E2DD 0,transparent 32%),#F6F5FA;
+ padding:26px}
+.cloud-card{width:min(460px,100%);background:#fff;border:1px solid #EDE7F4;
+ border-radius:27px;box-shadow:0 25px 75px #4C318620;padding:34px}
+.cloud-card .cloud-emblem{display:grid;place-items:center;border-radius:18px;width:56px;height:56px;
+ color:#fff;background:linear-gradient(140deg,#A07EF3,#6940D0);margin-bottom:20px}
+.cloud-card h1{font-size:27px;margin:8px 0 12px}
+.cloud-card p{font-size:13px;color:#8B839A;line-height:1.9}
+.cloud-card form{display:grid;gap:16px;margin:24px 0 14px}
+.cloud-card form label{font-size:12px;color:#584A70;display:grid;gap:7px;font-weight:700}
+.cloud-card form input{width:100%;padding:12px;border-radius:12px;border:1px solid #E1DAEC;
+ background:#FDFCFF;direction:ltr;text-align:left;min-height:45px}
+.cloud-card form button{width:100%}
+.cloud-card .gate-switch{border:0;background:transparent;padding:12px;color:#764FD4;font-weight:700}
+.cloud-card>small{display:block;color:#9B92AB;margin-top:26px;font-size:11px;line-height:1.8}
+.cloud-card .gate-error{padding:10px;background:#FFF0F0;border-radius:10px;color:#A53945}
+.cloud-card .gate-note{padding:11px;background:#EAF7F0;border-radius:10px;color:#217B59}
+.cloud-logout{border:1px solid #E9DDF1;border-radius:11px;padding:9px;background:white;color:#7F5B98;font-size:12px}
+.cloud-settings{margin-bottom:20px}
+.cloud-settings p{color:#8F8799;font-size:12px}
+.cloud-space-controls{display:flex;gap:12px;flex-wrap:wrap}
+.cloud-space-controls select{flex:1;min-width:170px;border:1px solid #EAE5F2;border-radius:11px;padding:9px}
+@media(max-width:690px){.cloud-card{padding:24px}.cloud-gate{padding:15px}.cloud-logout{padding:7px}}
