@@ -18,7 +18,6 @@ jobs:
           node-version: '22'
       - name: Static syntax
         run: npm run check
-          node --check product-app.js
       - name: Financial regression suite
         run: npm test
       - name: Static-server smoke
@@ -31,7 +30,7 @@ jobs:
             sleep 1
           done
           grep -q 'NABD' /tmp/nabd-response.html
-          for asset in /agents.js /app.js /transaction-utils.js /sw.js /privacy.html; do
+          for asset in /agents.js /product-app.js /product-ui.css /transaction-utils.js /sw.js /privacy.html; do
             curl --fail --silent --show-error "http://127.0.0.1:8765$asset" >/dev/null
           done
 
