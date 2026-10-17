@@ -1,1 +1,25 @@
-const CACHE='nabd-v1';const ASSETS=['./','./index.html','./styles.css','./app.js','./agents.js','./demo-data.js','./manifest.webmanifest','./privacy.html','./terms.html'];self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))))
+// Offline app shell only. Never cache financial exports or third-party requests.
+const CACHE='nabd-static-v2';
+const ASSETS=['./','./index.html','./styles.css','./app.js','./agents.js',
+  './transaction-utils.js','./demo-data.js','./manifest.webmanifest','./privacy.html','./terms.html'];
+const SHELL_PATHS=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).pathname));
+
+self.addEventListener('install',event=>{
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+});
+self.addEventListener('activate',event=>{
+  event.waitUntil(caches.keys().then(keys=>Promise.all(
+    keys.filter(name=>name.startsWith('nabd-')&&name!==CACHE).map(name=>caches.delete(name))
+  )).then(()=>self.clients.claim()));
+});
+self.addEventListener('fetch',event=>{
+  const request=event.request;
+  const url=new URL(request.url);
+  if(request.method!=='GET'||url.origin!==self.location.origin) return;
+  if(request.mode==='navigate'){
+    event.respondWith(fetch(request).catch(()=>caches.match('./index.html')));
+    return;
+  }
+  if(!SHELL_PATHS.has(url.pathname)) return;
+  event.respondWith(caches.match(request).then(cached=>cached||fetch(request)));
+});
