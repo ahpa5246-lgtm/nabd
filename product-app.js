@@ -1,5 +1,5 @@
 import {createDemoTransactions} from './demo-data.js';
-import {runAgents,runScenario,compactMoney,todayIso,addDays,fullDate} from './agents.js';
+import {runAgents,runScenario,answerQuestion,compactMoney,todayIso,addDays,fullDate} from './agents.js';
 import {parseCsvTransactions,combineWithoutDuplicates,validateStoredTransactions,validateTransaction} from './transaction-utils.js';
 
 const ROOT=document.querySelector('#app');
@@ -7,7 +7,7 @@ const TOAST=document.querySelector('#toast');
 const TX_KEY='nabd.transactions.v1';
 const BAL_KEY='nabd.opening-balance.v1';
 const VIEWS=[['overview','لوحة التحكم','layout-dashboard'],['transactions','الحركات المالية','arrow-left-right'],
- ['analytics','التحليلات','chart'],['scenarios','ماذا لو؟','sliders'],['agents','قرارات نبض','sparkles'],['settings','الإعدادات','settings']];
+ ['analytics','التحليلات','chart'],['scenarios','ماذا لو؟','sliders'],['agents','قرارات نبض','sparkles'],['assistant','اسأل نبض','message'],['settings','الإعدادات','settings']];
 const ICONS={
  'layout-dashboard':'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
  'arrow-left-right':'<path d="M7 7h14m-4-4 4 4-4 4M17 17H3m4-4-4 4 4 4"/>',
@@ -19,7 +19,7 @@ const ICONS={
  'wallet':'<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M5 6V4h13M15 13h6"/>',
  'trend':'<path d="m3 17 7-7 5 3 6-8M16 5h5v5"/>','arrow-up':'<path d="M12 19V5m-5 5 5-5 5 5"/>',
  'arrow-down':'<path d="M12 5v14m-5-5 5 5 5-5"/>','chevron':'<path d="m9 18 6-6-6-6"/>',
- 'search':'<circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/>','calendar':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/>',
+ 'search':'<circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/>','message':'<path d="M20 11.5A8.5 8.5 0 0 1 11.5 20a9 9 0 0 1-4-.9L3 21l1.9-4.5a9 9 0 0 1-.9-4A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 12h8M8 15h5"/>','calendar':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/>',
  'shield':'<path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-4"/>',
  'file':'<path d="M7 2h8l5 5v15H7a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3Z"/><path d="M15 2v6h5M8 13h8M8 17h8"/>',
  'edit':'<path d="m4 17-1 4 4-1L19 8l-3-3L4 17Z"/><path d="m14 7 3 3"/>','trash':'<path d="M4 7h16M8 7V4h8v3m-9 0 1 14h8l1-14M10 10v8m4-8v8"/>',
@@ -34,7 +34,7 @@ const money=value=>new Intl.NumberFormat('en-US',{maximumFractionDigits:0}).form
 const isDemoLedger=rows=>rows.length>0&&rows.length<=16&&rows.every(row=>/^d(?:[1-9]|1[0-6])$/.test(row.id));
 const number=value=>Number.isSafeInteger(value)&&Math.abs(value)<=1_000_000_000_000?value:null;
 const state={view:'overview',transactions:[],demo:false,error:null,openingBalance:0,range:'30',search:'',type:'all',status:'all',
-  modal:null,editId:null,scenario:{extraCollection:0,reduceExpensesPct:0,delayLargeExpenseDays:0},mobileMenu:false, page:1};
+  modal:null,editId:null,messages:[{side:'nabd',text:'اسأل عن السيولة والرصيد والحركات المجدولة؛ سأجيب من البيانات الموجودة على هذا الجهاز.'}],scenario:{extraCollection:0,reduceExpensesPct:0,delayLargeExpenseDays:0},mobileMenu:false, page:1};
 const load=()=>{
   try{
     const saved=localStorage.getItem(TX_KEY);
@@ -250,6 +250,16 @@ function agentsView(r){
  '<h3 class="next-steps">الإجراءات المقترحة</h3>'+r.actions.map((a,i)=>'<div class="action-line"><b>'+String(i+1).padStart(2,'0')+'</b>'+
  '<div><strong>'+escapeHTML(a.title)+'</strong><p>'+escapeHTML(a.detail)+'</p><small>'+(a.impact==null?'الأثر المالي غير محسوب':'هدف حسابي افتراضي '+money(a.impact))+'</small></div></div>').join('')+'</section>';
 }
+function assistantView(r){
+ const suggestions=['كم رصيدي الحالي؟','متى يصير عندي عجز؟','كم صرفت آخر 30 يوم؟','شنو أول خطوة أسويها؟'];
+ return header('اسأل بياناتك المالية','مساعد محلي يشرح نتائج الحسابات؛ لا يتصل بالإنترنت ولا يدّعي فهمًا بشريًا')+
+ '<section class="assistant-layout"><div class="panel chat-panel"><div class="panel-head"><div><h2>محادثة مع حسابات نبض</h2><p>الإجابات تتغير عندما تغيّر السجل أو الرصيد الافتتاحي</p></div><span class="data-pill private">دون خادم</span></div>'+
+ '<div class="chat-thread" aria-live="polite">'+state.messages.map(m=>'<div class="chat-line '+m.side+'"><span>'+escapeHTML(m.text)+'</span></div>').join('')+'</div>'+
+ '<form id="question-form" class="question-form"><input id="ask-input" maxlength="400" required placeholder="اكتب سؤالك عن التدفق أو المصروفات" aria-label="اسأل نبض"><button class="btn btn-primary" type="submit">'+ic('chevron',17)+' إرسال</button></form></div>'+
+ '<aside class="panel assistant-guide"><h2>أسئلة جاهزة</h2><p>ابدأ بسؤال مرتبط بالأرقام المسجلة.</p>'+
+ suggestions.map(q=>'<button class="suggestion" data-question="'+escapeHTML(q)+'">'+ic('message',18)+escapeHTML(q)+'</button>').join('')+
+ '<div class="assistant-qualifier">'+ic('info',20)+'<span>هذا شرح حسابي مبني على افتراضات السجل، وليس توصية مالية أو محاسبية ملزمة.</span></div></aside></section>';
+}
 function settingsView(){
  return header('الإعدادات والخصوصية','إدارة بياناتك والافتراضات التي تعتمد عليها الحسابات')+
  '<div class="settings-grid"><section class="panel"><div class="panel-head"><div><h2>أساس الحساب</h2><p>حتى لا نخلط صافي الحركات بالرصيد الحقيقي</p></div></div>'+
@@ -303,7 +313,7 @@ function render(){
  }
  const r=report();
  const content=state.view==='overview'?overview(r):state.view==='transactions'?transactionsView():
- state.view==='analytics'?analyticsView(r):state.view==='scenarios'?scenariosView(r):state.view==='agents'?agentsView(r):settingsView();
+ state.view==='analytics'?analyticsView(r):state.view==='scenarios'?scenariosView(r):state.view==='agents'?agentsView(r):state.view==='assistant'?assistantView(r):settingsView();
  ROOT.innerHTML=baseLayout(content,r);
  document.title='نَبض — '+(VIEWS.find(x=>x[0]===state.view)?.[1]||'لوحة التحكم');
  bind();
@@ -324,6 +334,21 @@ function bind(){
  document.querySelector('#show-import')?.addEventListener('click',()=>openModal('import'));
  document.querySelector('#go-transactions')?.addEventListener('click',()=>{state.view='transactions';render()});
  document.querySelector('#go-scenarios')?.addEventListener('click',()=>{state.view='scenarios';render()});
+ document.querySelector('#question-form')?.addEventListener('submit',e=>{
+  e.preventDefault();
+  const input=document.querySelector('#ask-input'),question=input?.value.trim();
+  if(!question)return;
+  const answer=answerQuestion(question,report());
+  state.messages.push({side:'user',text:question},{side:'nabd',text:answer});
+  state.messages=state.messages.slice(-24);
+  render();document.querySelector('.chat-thread')?.scrollTo?.(0,100000);
+ });
+ document.querySelectorAll('[data-question]').forEach(button=>button.addEventListener('click',()=>{
+  const question=button.dataset.question,answer=answerQuestion(question,report());
+  state.messages.push({side:'user',text:question},{side:'nabd',text:answer});
+  state.messages=state.messages.slice(-24);render();
+ }));
+
  document.querySelector('#export-report')?.addEventListener('click',()=>download('nabd-analysis.json',JSON.stringify(report(),null,2)));
  document.querySelector('#start-fresh')?.addEventListener('click',()=>{if(confirm('ابدأ سجلًا جديدًا دون بيانات العرض؟')){if(save([],false))render();}});
  document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openModal('edit',b.dataset.edit)));
