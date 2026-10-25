@@ -1,5 +1,38 @@
 # نَبض | NABD
 
+## Download, setup and project overview
+
+A local-first cash-flow decision workspace for small businesses.
+
+CSV transactions; cash-flow analysis; scenario comparisons; local Arabic explanations; offline assets.
+
+![Project workflow illustration](docs/project-overview.svg)
+
+### Running application
+
+![Actual browser capture at 1440 × 1000](docs/application.webp)
+
+Actual local browser capture from this maintenance pass; a screenshot alone does not verify every feature.
+
+[Download source ZIP](https://github.com/ahpa5246-lgtm/nabd/archive/refs/heads/main.zip) · [Changes and branches](https://github.com/ahpa5246-lgtm/nabd/branches) · [Verification notes](docs/QUALITY_REVIEW.md)
+
+The ZIP contains source code. Installation steps and external runtime requirements are listed below.
+
+```bash
+git clone https://github.com/ahpa5246-lgtm/nabd.git
+cd nabd
+```
+
+From the repository directory:
+
+```text
+python -m http.server 8080 --bind 127.0.0.1
+# Open http://127.0.0.1:8080
+```
+
+The diagram is a project illustration. Test results and runtime limitations are recorded in [the review](docs/QUALITY_REVIEW.md); it is not a production-readiness certification.
+
+
 نَبض هو مساعد قرار مالي Local-first للتجار والمشاريع الصغيرة. يجمع الحركات المالية من CSV، يحسب التدفق النقدي، يتوقع الضغط على السيولة، ثم يمرر النتيجة عبر شبكة من الوكلاء المتخصصين بدل الاعتماد على نموذج واحد غامض.
 
 ## ما الذي يقدمه؟
@@ -59,3 +92,4 @@ date,amount,type,category,description,channel,status
 ## الترخيص
 
 All Rights Reserved. راجع [LICENSE](./LICENSE).
+
