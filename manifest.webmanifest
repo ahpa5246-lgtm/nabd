@@ -1,9 +1,9 @@
 {
-  "name":"نَبض | NABD",
-  "short_name":"نَبض",
-  "start_url":"./",
-  "display":"standalone",
-  "background_color":"#050b09",
-  "theme_color":"#07130f",
-  "description":"مساعد قرار مالي محلي للتجار والمشاريع الصغيرة."
+  "name": "نَبض | NABD Finance",
+  "short_name": "نَبض",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f5fc",
+  "theme_color": "#7650d8",
+  "description": "A simple financial dashboard for tracking cash flow and commitments."
 }
